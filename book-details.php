@@ -6,6 +6,8 @@ if (!isset($_GET['isbn'])) {
 }
 
 $isbn = $_GET['isbn'];
+
+// Fetch book details
 $stmt = $pdo->prepare("SELECT * FROM BOOK WHERE Book_ISBN = :isbn");
 $stmt->execute(['isbn' => $isbn]);
 $book = $stmt->fetch();
@@ -18,6 +20,16 @@ if (!$book) {
 $stmt = $pdo->prepare("SELECT CategoryName FROM CATEGORY WHERE CategoryID = :categoryID");
 $stmt->execute(['categoryID' => $book['CategoryID']]);
 $category = $stmt->fetch();
+
+// Fetch author details
+$stmt = $pdo->prepare("
+    SELECT a.AuthorName, a.Nationality, a.Gender, a.Email
+    FROM AUTHOR a
+    INNER JOIN BOOK_AUTHOR ba ON a.AuthorID = ba.AuthorID
+    WHERE ba.Book_ISBN = :isbn
+");
+$stmt->execute(['isbn' => $isbn]);
+$authors = $stmt->fetchAll();
 ?>
 
 <!DOCTYPE html>
@@ -50,17 +62,16 @@ $category = $stmt->fetch();
             border-radius: 5px;
         }
 
-        /* New Styling for Text Below Title */
         .book-details-container p {
-            font-size: 18px; /* Adjusted font size */
-            line-height: 1.6; /* Better spacing */
-            color: #333; /* Darker text color */
+            font-size: 18px;
+            line-height: 1.6;
+            color: #333;
         }
 
         .book-details-container p strong {
-            font-size: 20px; /* Bigger size for strong text */
+            font-size: 20px;
             font-weight: bold;
-            color: #000; /* Emphasize labels */
+            color: #000;
         }
     </style>
 </head>
@@ -80,6 +91,24 @@ $category = $stmt->fetch();
             <p><strong>Stock:</strong> <?php echo $book['BookStock']; ?> available</p>
             <p><strong>Year:</strong> <?php echo $book['PublicationYear']; ?></p>
             <p><strong>Category:</strong> <?php echo htmlspecialchars($category['CategoryName']); ?></p>
+           
+
+            <!-- Author Details -->
+            <?php if (!empty($authors)): ?>
+                <p><strong>Author(s):</strong></p>
+                <ul>
+                    <?php foreach ($authors as $author): ?>
+                        <li>
+                            <strong>Name:</strong> <?php echo htmlspecialchars($author['AuthorName']); ?><br>
+                            <strong>Nationality:</strong> <?php echo htmlspecialchars($author['Nationality']); ?><br>
+                            <strong>Gender:</strong> <?php echo htmlspecialchars($author['Gender']); ?><br>
+                            <strong>Email:</strong> <?php echo htmlspecialchars($author['Email']); ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php else: ?>
+                <p><strong>Author(s):</strong> Not available</p>
+            <?php endif; ?>
 
             <!-- Quantity and Add to Cart -->
             <form action="add-to-cart.php" method="GET" class="text-center">
