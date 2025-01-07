@@ -8,7 +8,7 @@ if (isset($_SESSION['CustomerID'])) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    require_once "config.php";
+    require_once "mieraconnect.php";
 
     $username = $_POST['username'];
     $password = $_POST['password'];

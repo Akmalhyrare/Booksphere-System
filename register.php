@@ -1,5 +1,5 @@
 <?php
-require_once "config.php"; // Include your database configuration file
+require_once "mieraconnect.php"; // Include your database configuration file
 
 // Initialize messages
 $success_msg = '';
