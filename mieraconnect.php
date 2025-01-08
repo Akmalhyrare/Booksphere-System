@@ -1,7 +1,7 @@
 <?php
 // Database connection details
 $host = "localhost";
-$dbname = "onlinebookspheresystem";
+$dbname = "booksphere";
 $user = "postgres";
 $password = "miera1234";
 

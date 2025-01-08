@@ -5,7 +5,7 @@ session_start();
 $host = 'localhost';
 $username = 'postgres';
 $password = 'miera1234'; // Replace with your DB password
-$dbname = 'onlinebookspheresystem'; // Replace with your DB name
+$dbname = 'booksphere'; // Replace with your DB name
 
 // Create connection string
 $conn = pg_connect("host=$host dbname=$dbname user=$username password=$password");

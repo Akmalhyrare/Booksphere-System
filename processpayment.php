@@ -4,7 +4,7 @@ session_start();
 
 // PostgreSQL database connection
 $host = 'localhost';  // or IP address of the PostgreSQL server
-$dbname = 'onlinebookspheresystem';  // replace with your database name
+$dbname = 'booksphere';  // replace with your database name
 $username = 'postgres';  // replace with your PostgreSQL username
 $password = 'miera1234';  // replace with your PostgreSQL password
 
