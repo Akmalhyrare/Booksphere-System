@@ -1,19 +1,6 @@
 <?php
 session_start();
-
-// Database connection
-$host = 'localhost';
-$username = 'postgres';
-$password = 'miera1234'; // Replace with your DB password
-$dbname = 'booksphere'; // Replace with your DB name
-
-// Create connection string
-$conn = pg_connect("host=$host dbname=$dbname user=$username password=$password");
-
-// Check connection
-if (!$conn) {
-    die("Connection failed: " . pg_last_error());
-}
+require_once 'mieraconnect.php'; // Include your database configuration file
 
 // Initialize shopping cart if not already done
 if (!isset($_SESSION['cart'])) {
@@ -44,15 +31,16 @@ function updateCart($bookISBN, $quantity) {
 }
 
 // Function to calculate the total price of the cart
-function calculateTotal($conn) {
+function calculateTotal($pdo) {
     $total = 0;
     foreach ($_SESSION['cart'] as $bookISBN => $quantity) {
-        $query = "SELECT BookPrice FROM BOOK WHERE Book_ISBN = $1";
-        $result = pg_query_params($conn, $query, [$bookISBN]);
+        $query = 'SELECT "BookPrice" FROM "book" WHERE "Book_ISBN" = :isbn';
+        $stmt = $pdo->prepare($query);
+        $stmt->execute(['isbn' => $bookISBN]);
+        $book = $stmt->fetch();
 
-        if ($result && pg_num_rows($result) > 0) {
-            $book = pg_fetch_assoc($result);
-            $total += $book['bookprice'] * $quantity;
+        if ($book) {
+            $total += $book['BookPrice'] * $quantity;
         }
     }
     return $total;
@@ -69,23 +57,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (isset($_POST['checkout'])) {
         // Handle checkout process
         $customerID = 1; // Replace with logged-in customer ID
-        $totalPrice = calculateTotal($conn);
+        $totalPrice = calculateTotal($pdo);
 
         // Create order
-        $query = "INSERT INTO \"ORDER\" (Order_Date, Total_Price, CustomerID) VALUES (NOW(), $1, $2) RETURNING Order_ID";
-        $result = pg_query_params($conn, $query, [$totalPrice, $customerID]);
-
-        if (!$result) {
-            die("Failed to insert order: " . pg_last_error($conn));
-        }
-
-        // Fetch the generated Order_ID
-        $orderID = pg_fetch_result($result, 0, 'order_id');
+        $query = 'INSERT INTO "order" ("Order_Date", "Total_Price", "CustomerID") VALUES (NOW(), :total_price, :customer_id) RETURNING "Order_ID"';
+        $stmt = $pdo->prepare($query);
+        $stmt->execute(['total_price' => $totalPrice, 'customer_id' => $customerID]);
+        
+        $orderID = $stmt->fetchColumn();
 
         // Insert order items
         foreach ($_SESSION['cart'] as $bookISBN => $quantity) {
-            $query = "INSERT INTO ORDERLIST (Book_ISBN, Order_ID, Quantity) VALUES ($1, $2, $3)";
-            pg_query_params($conn, $query, [$bookISBN, $orderID, $quantity]);
+            $query = 'INSERT INTO "orderlist" ("Book_ISBN", "Order_ID", "Quantity") VALUES (:isbn, :order_id, :quantity)';
+            $stmt = $pdo->prepare($query);
+            $stmt->execute(['isbn' => $bookISBN, 'order_id' => $orderID, 'quantity' => $quantity]);
         }
 
         // Clear cart after checkout
@@ -103,73 +88,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shopping Cart</title>
+    <link rel="stylesheet" href="styles.css"> <!-- Link to your CSS file -->
 </head>
 <body>
-    <h1>Shopping Cart</h1>
+    <div class="login-container"> <!-- Use the same container class for consistency -->
+        <h2 class="heading">Shopping Cart</h2>
 
-    <!-- Book List -->
-    <h2>Books</h2>
-    <table border="1">
-        <tr>
-            <th>ISBN</th>
-            <th>Title</th>
-            <th>Price</th>
-            <th>Action</th>
-        </tr>
-        <?php
-        $query = "SELECT Book_ISBN, BookTitle, BookPrice FROM BOOK";
-        $result = pg_query($conn, $query);
+        <!-- Book List -->
+        <h2 class="heading">Books</h2>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ISBN</th>
+                    <th>Title</th>
+                    <th>Price</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                $query = 'SELECT "Book_ISBN", "BookTitle", "BookPrice" FROM "book"';
+                $stmt = $pdo->query($query);
 
-        while ($row = pg_fetch_assoc($result)) {
-            echo "<tr>";
-            echo "<td>{$row['book_isbn']}</td>";
-            echo "<td>{$row['booktitle']}</td>";
-            echo "<td>{$row['bookprice']}</td>";
-            echo "<td>
-                <form method='POST'>
-                    <input type='hidden' name='book_isbn' value='{$row['book_isbn']}'>
-                    <input type='number' name='quantity' value='1' min='1'>
-                    <button type='submit' name='add_to_cart'>Add to Cart</button>
-                </form>
-            </td>";
-            echo "</tr>";
-        }
-        ?>
-    </table>
+                while ($row = $stmt->fetch()) {
+                    echo "<tr>";
+                    echo "<td>{$row['Book_ISBN']}</td>";
+                    echo "<td>{$row['BookTitle']}</td>";
+                    echo "<td>{$row['BookPrice']}</td>";
+                    echo '<td>
+                        <form method="POST" class="form-inline">
+                            <input type="hidden" name="book_isbn" value="' . $row['Book_ISBN'] . '">
+                            <input type="number" name="quantity" value="1" min="1" class="quantity-input">
+                            <button type="submit" name="add_to_cart" class="btn">Add to Cart</button>
+                        </form>
+                    </td>';
+                    echo "</tr>";
+                }
+                ?>
+            </tbody>
+        </table>
 
-    <!-- Shopping Cart -->
-    <h2>Your Cart</h2>
-    <table border="1">
-        <tr>
-            <th>ISBN</th>
-            <th>Quantity</th>
-            <th>Action</th>
-        </tr>
-        <?php
-        foreach ($_SESSION['cart'] as $bookISBN => $quantity) {
-            echo "<tr>";
-            echo "<td>$bookISBN</td>";
-            echo "<td>$quantity</td>";
-            echo "<td>
-                <form method='POST' style='display:inline;'>
-                    <input type='hidden' name='book_isbn' value='$bookISBN'>
-                    <input type='number' name='quantity' value='$quantity' min='0'>
-                    <button type='submit' name='update_cart'>Update</button>
-                </form>
-                <form method='POST' style='display:inline;'>
-                    <input type='hidden' name='book_isbn' value='$bookISBN'>
-                    <button type='submit' name='remove_from_cart'>Remove</button>
-                </form>
-            </td>";
-            echo "</tr>";
-        }
-        ?>
-    </table>
+        <!-- Shopping Cart -->
+        <h2 class="heading">Your Cart</h2>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ISBN</th>
+                    <th>Quantity</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                foreach ($_SESSION['cart'] as $bookISBN => $quantity) {
+                    echo "<tr>";
+                    echo "<td>$bookISBN</td>";
+                    echo "<td>$quantity</td>";
+                    echo '<td>
+                        <form method="POST" class="form-inline" style="display:inline;">
+                            <input type="hidden" name="book_isbn" value="' . $bookISBN . '">
+                            <input type="number" name="quantity" value="' . $quantity . '" min="0" class="quantity-input">
+                            <button type="submit" name="update_cart" class="btn">Update</button>
+                        </form>
+                        <form method="POST" class="form-inline" style="display:inline;">
+                            <input type="hidden" name="book_isbn" value="' . $bookISBN . '">
+                            <button type="submit" name="remove_from_cart" class="btn">Remove</button>
+                        </form>
+                    </td>';
+                    echo "</tr>";
+                }
+                ?>
+            </tbody>
+        </table>
 
-    <!-- Checkout -->
-    <h3>Total: <?php echo calculateTotal($conn); ?></h3>
-    <form method="POST">
-        <button type="submit" name="checkout">Checkout</button>
-    </form>
+        <!-- Checkout -->
+        <h3 class="total">Total: <?php echo calculateTotal($pdo); ?></h3>
+        <form method="POST" class="form-checkout">
+            <button type="submit" name="checkout" class="btn-checkout">Checkout</button>
+        </form>
+    </div>
 </body>
 </html>
