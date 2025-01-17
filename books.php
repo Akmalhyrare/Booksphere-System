@@ -146,7 +146,7 @@ $books = $stmt->fetchAll();
                                     <strong>Stock:</strong> <?php echo htmlspecialchars($book['BookStock']); ?>
                                 </p>
                                 <a href="book-details.php?isbn=<?php echo $book['Book_ISBN']; ?>" class="btn btn-primary">View Details</a>
-                                <a href="add-to-cart.php?isbn=<?php echo $book['Book_ISBN']; ?>" class="btn btn-success">Add to Cart</a>
+                                <a href="http://192.168.196.170/booksphere/shoppingcart.php"class="btn btn-success">Add to Cart</a>
                             </div>
                         </div>
                     </div>
